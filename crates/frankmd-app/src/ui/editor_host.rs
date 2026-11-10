@@ -51,12 +51,12 @@ impl EditorHost {
                     };
                     shell.run_command(command, window, cx);
                 }
-                EditorEvent::Scrolled { top_line } => {
+                EditorEvent::Scrolled { top_line, within } => {
                     if shell.scroll_sync {
                         let line = u32::try_from(*top_line + 1).unwrap_or(u32::MAX);
                         shell
                             .preview
-                            .update(cx, |p, cx| p.scroll_to_source_line(line, cx));
+                            .update(cx, |p, cx| p.scroll_to_source_line(line, *within, cx));
                     }
                 }
                 EditorEvent::UndoBoundary | EditorEvent::RedoBoundary => {

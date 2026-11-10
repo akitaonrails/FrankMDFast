@@ -93,6 +93,8 @@ pub enum EditorEvent {
     Scrolled {
         /// First visible buffer line.
         top_line: usize,
+        /// How far (`[0, 1)`) into `top_line` the viewport top is (soft-wrapped lines).
+        within: f32,
     },
     /// Vim mode, command line or message changed (status line mode block / message slot).
     VimStatusChanged,
@@ -144,7 +146,7 @@ pub struct EditorPane {
     menu_focus: FocusHandle,
     bindings: Vec<OwnedBinding>,
     last_selection: Range<usize>,
-    last_top_line: usize,
+    last_top: (usize, f32),
     last_scroll_y: Pixels,
     /// The next viewport move came from [`Self::sync_to_line`]; do not echo it.
     sync_scrolling: bool,
@@ -228,7 +230,7 @@ impl EditorPane {
             menu_focus: cx.focus_handle(),
             bindings: owned_bindings(),
             last_selection: 0..0,
-            last_top_line: 0,
+            last_top: (0, 0.0),
             last_scroll_y: px(0.),
             sync_scrolling: false,
             insert: super::insert::InsertHost::default(),
@@ -369,18 +371,53 @@ impl EditorPane {
         scroll_to_line(&self.state, line, ScrollAnchor::Top, cx);
     }
 
-    /// Like [`Self::scroll_to_line`], but does not echo an [`EditorEvent::Scrolled`]
+    /// Scroll so 0-based buffer `line`, `within` (`[0, 1)`) of the way into its
+    /// wrapped rows, is at the top. Does not echo an [`EditorEvent::Scrolled`]
     /// (sync scroll from the preview; an echo would yank the preview back).
-    pub fn sync_to_line(&mut self, line: usize, cx: &mut Context<Self>) {
-        // shortcut: if the viewport does not move, the flag swallows the next user
-        // scroll's echo once; track the target offset if that ever shows.
-        self.sync_scrolling = true;
-        self.scroll_to_line(line, cx);
+    pub fn sync_to_line(&mut self, line: usize, within: f32, cx: &mut Context<Self>) {
+        let moved = self.state.update(cx, |s, cx| {
+            let line_height = s.line_height().unwrap_or(px(20.));
+            let map = s.display_map();
+            let rows = map
+                .buffer_line_to_display_row_range(line)
+                .unwrap_or_else(|| {
+                    let row = map.buffer_line_to_display_row(line);
+                    row..row + 1
+                });
+            let row = rows.start as f32 + within.clamp(0.0, 1.0) * rows.len() as f32;
+            let offset = point(s.scroll_offset().x, -(line_height * row).max(px(0.)));
+            let moved = offset != s.scroll_offset();
+            if moved {
+                s.set_scroll_offset(offset, cx);
+            }
+            moved
+        });
+        // shortcut: past the editor's bottom clamp the viewport does not move, so the
+        // flag swallows the next user scroll's echo once; harmless while sync is continuous.
+        self.sync_scrolling = moved;
     }
 
     /// 0-based first visible buffer line.
     pub fn top_visible_line(&self, cx: &App) -> usize {
-        visible_lines(&self.state, cx).start
+        self.top_position(cx).0
+    }
+
+    /// First visible buffer line and how far (`[0, 1)`) into its wrapped rows the
+    /// viewport top is, from the live scroll offset (the painted layout lags a frame).
+    fn top_position(&self, cx: &App) -> (usize, f32) {
+        let s = self.state.read(cx);
+        let Some(line_height) = s.line_height() else {
+            return (visible_lines(&self.state, cx).start, 0.0);
+        };
+        let row = (-s.scroll_offset().y / line_height).max(0.0);
+        let map = s.display_map();
+        let line = map.display_row_to_buffer_line(row as usize);
+        let within = map
+            .buffer_line_to_display_row_range(line)
+            .map_or(0.0, |rows| {
+                (row - rows.start as f32) / rows.len().max(1) as f32
+            });
+        (line, within.clamp(0.0, 0.999))
     }
 
     // ----- settings ---------------------------------------------------------------
@@ -695,12 +732,13 @@ impl EditorPane {
         }
         if scroll_y != self.last_scroll_y {
             self.last_scroll_y = scroll_y;
-            let top_line = self.top_visible_line(cx);
+            let top = self.top_position(cx);
             if std::mem::take(&mut self.sync_scrolling) {
-                self.last_top_line = top_line;
-            } else if top_line != self.last_top_line {
-                self.last_top_line = top_line;
-                cx.emit(EditorEvent::Scrolled { top_line });
+                self.last_top = top;
+            } else if top != self.last_top {
+                self.last_top = top;
+                let (top_line, within) = top;
+                cx.emit(EditorEvent::Scrolled { top_line, within });
             }
         }
         self.update_typewriter(window, cx);

@@ -256,18 +256,24 @@ pub(crate) fn item_for_line(items: &[Item], line: u32) -> usize {
         .saturating_sub(1)
 }
 
-/// Fractional position of `line` inside a row's span, in `[0, 1)`.
-pub(crate) fn fraction_in_item(item: &Item, line: u32) -> f32 {
+/// Fractional position of `line`, `within` (`[0, 1)`) of the way into it, inside a
+/// row's span, in `[0, 1)`.
+pub(crate) fn fraction_in_item(item: &Item, line: u32, within: f32) -> f32 {
     let len = (item.span.end_line - item.span.start_line + 1) as f32;
-    let into = line.saturating_sub(item.span.start_line) as f32;
+    let into = line.saturating_sub(item.span.start_line) as f32 + within.clamp(0.0, 1.0);
     (into / len).clamp(0.0, 0.999)
 }
 
-/// Source line at `fraction` of the way through a row.
-pub(crate) fn line_in_item(item: &Item, fraction: f32) -> u32 {
+/// Source line at `fraction` of the way through a row, and how far into that
+/// line (`[0, 1)`) the position falls.
+pub(crate) fn line_in_item(item: &Item, fraction: f32) -> (u32, f32) {
     let len = item.span.end_line - item.span.start_line + 1;
-    let into = (fraction.clamp(0.0, 1.0) * len as f32).floor() as u32;
-    (item.span.start_line + into).min(item.span.end_line)
+    let pos = fraction.clamp(0.0, 1.0) * len as f32;
+    let into = (pos.floor() as u32).min(len - 1);
+    (
+        item.span.start_line + into,
+        (pos - into as f32).clamp(0.0, 0.999),
+    )
 }
 
 #[cfg(test)]
@@ -323,8 +329,14 @@ mod tests {
             first_image: 0,
             code_ordinal: None,
         };
-        assert_eq!(line_in_item(&item, fraction_in_item(&item, 15)), 15);
-        assert_eq!(line_in_item(&item, 1.0), 19);
+        assert_eq!(
+            line_in_item(&item, fraction_in_item(&item, 15, 0.0)),
+            (15, 0.0)
+        );
+        let (line, within) = line_in_item(&item, fraction_in_item(&item, 15, 0.5));
+        assert_eq!(line, 15);
+        assert!((within - 0.5).abs() < 1e-3, "{within}");
+        assert_eq!(line_in_item(&item, 1.0).0, 19);
     }
 
     #[test]

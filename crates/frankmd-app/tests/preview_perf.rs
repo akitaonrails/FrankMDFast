@@ -57,7 +57,7 @@ fn measure(cx: &mut TestAppContext, label: &str, bytes: usize) {
     let first_frame = t.elapsed();
     let mid = doc.total_lines / 2;
     let t = Instant::now();
-    pane.update(cx, |p, cx| p.scroll_to_source_line(mid, cx));
+    pane.update(cx, |p, cx| p.scroll_to_source_line(mid, 0.0, cx));
     cx.update_window(window, |_, w, cx| w.render_frame(cx))
         .unwrap();
     let jump = t.elapsed();

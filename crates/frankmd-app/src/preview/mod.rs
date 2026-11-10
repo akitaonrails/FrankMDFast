@@ -40,10 +40,11 @@ use inline::LinkRef;
 use items::Layout;
 
 /// Events the preview emits for the shell to act on.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum PreviewEvent {
-    /// The user scrolled the preview; this source line is at its top (sync scroll).
-    VisibleSourceLine(u32),
+    /// The user scrolled the preview; this source line is at its top, the second
+    /// field (`[0, 1)`) of the way into it (sync scroll).
+    VisibleSourceLine(u32, f32),
     /// A task checkbox was clicked: toggle the `[ ]`/`[x]` marker on this
     /// 1-based source line (`frankmd_core::text::task::task_marker_range`).
     ToggleTask {
@@ -96,8 +97,8 @@ pub struct PreviewPane {
     show_front_matter: bool,
     copied: Option<usize>,
     copied_task: Option<Task<()>>,
-    pending_line: Option<u32>,
-    last_reported_line: Option<u32>,
+    pending_line: Option<(u32, f32)>,
+    last_reported_line: Option<(u32, f32)>,
     highlighter: Arc<dyn CodeHighlighter>,
 }
 
@@ -233,8 +234,8 @@ impl PreviewPane {
                 offset_in_item: old_top.offset_in_item,
             });
         }
-        if let Some(line) = self.pending_line.take() {
-            self.scroll_to_source_line(line, cx);
+        if let Some((line, within)) = self.pending_line.take() {
+            self.scroll_to_source_line(line, within, cx);
         }
         cx.notify();
     }
@@ -298,12 +299,12 @@ impl PreviewPane {
         cx.emit(PreviewEvent::ZoomChanged(self.zoom));
     }
 
-    /// Scroll so source `line` (1-based, whole note) is at the top. Applied
-    /// after the pending render when called before it lands. Does not echo a
-    /// [`PreviewEvent::VisibleSourceLine`].
-    pub fn scroll_to_source_line(&mut self, line: u32, cx: &mut Context<Self>) {
+    /// Scroll so source `line` (1-based, whole note), `within` (`[0, 1)`) of the
+    /// way into it, is at the top. Applied after the pending render when called
+    /// before it lands. Does not echo a [`PreviewEvent::VisibleSourceLine`].
+    pub fn scroll_to_source_line(&mut self, line: u32, within: f32, cx: &mut Context<Self>) {
         if self.rendered_generation != self.generation || self.layout.items.is_empty() {
-            self.pending_line = Some(line);
+            self.pending_line = Some((line, within));
             return;
         }
         let ix = items::item_for_line(&self.layout.items, line);
@@ -313,17 +314,22 @@ impl PreviewPane {
             .bounds_for_item(ix)
             .map(|b| b.size.height)
             .unwrap_or_default();
-        let offset = height * items::fraction_in_item(item, line);
+        let offset = height * items::fraction_in_item(item, line, within);
         self.list.scroll_to(ListOffset {
             item_ix: ix,
             offset_in_item: offset,
         });
-        self.last_reported_line = Some(line);
+        self.last_reported_line = Some((line, within));
         cx.notify();
     }
 
     /// Source line currently at the top of the viewport.
     pub fn visible_source_line(&self) -> Option<u32> {
+        self.visible_position().map(|(line, _)| line)
+    }
+
+    /// Source line at the top of the viewport, and how far (`[0, 1)`) into it.
+    fn visible_position(&self) -> Option<(u32, f32)> {
         let top = self.list.logical_scroll_top();
         let item = self.layout.items.get(top.item_ix)?;
         let height = self
@@ -338,12 +344,12 @@ impl PreviewPane {
     }
 
     fn report_visible_line(&mut self, cx: &mut Context<Self>) {
-        let Some(line) = self.visible_source_line() else {
+        let Some((line, within)) = self.visible_position() else {
             return;
         };
-        if self.last_reported_line != Some(line) {
-            self.last_reported_line = Some(line);
-            cx.emit(PreviewEvent::VisibleSourceLine(line));
+        if self.last_reported_line != Some((line, within)) {
+            self.last_reported_line = Some((line, within));
+            cx.emit(PreviewEvent::VisibleSourceLine(line, within));
         }
     }
 

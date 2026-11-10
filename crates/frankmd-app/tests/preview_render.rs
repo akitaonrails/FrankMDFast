@@ -245,7 +245,8 @@ fn sync_scroll_maps_source_lines_both_ways(cx: &mut TestAppContext) {
         .map(|i| format!("Paragraph number {i}\n\n"))
         .collect();
     f.show(cx, &md, None);
-    f.pane.update(cx, |p, cx| p.scroll_to_source_line(201, cx));
+    f.pane
+        .update(cx, |p, cx| p.scroll_to_source_line(201, 0.0, cx));
     f.frame(cx);
     assert_eq!(
         f.pane.read_with(cx, |p, _| p.visible_source_line()),
@@ -264,7 +265,7 @@ fn sync_scroll_maps_source_lines_both_ways(cx: &mut TestAppContext) {
     });
     cx.run_until_parked();
     let events = f.take_events();
-    let Some(PreviewEvent::VisibleSourceLine(line)) = events.last() else {
+    let Some(PreviewEvent::VisibleSourceLine(line, _)) = events.last() else {
         panic!("no sync event: {events:?}")
     };
     assert!(*line > 201, "scrolled down from 201, got {line}");
@@ -278,7 +279,7 @@ fn scroll_before_render_is_deferred(cx: &mut TestAppContext) {
     let md: String = (1..=100).map(|i| format!("Line {i}\n\n")).collect();
     f.pane.update(cx, |p, cx| {
         p.set_markdown(md, None, cx);
-        p.scroll_to_source_line(51, cx);
+        p.scroll_to_source_line(51, 0.0, cx);
     });
     cx.run_until_parked();
     f.frame(cx);
@@ -469,4 +470,32 @@ fn long_code_block_is_virtualized(cx: &mut TestAppContext) {
         .filter(|t| t.starts_with("line "))
         .count();
     assert!(painted <= 4, "{painted} code chunks painted");
+}
+
+// Scrolling inside one long paragraph reports how far into its source line the
+// top is, so the editor follows smoothly instead of jumping a line at a time.
+#[gpui_kit::test]
+fn user_scroll_inside_a_long_paragraph_reports_progress(cx: &mut TestAppContext) {
+    let f = open(cx, 900., 600.);
+    let md = format!("Intro\n\n{}\n\nEnd\n", "word ".repeat(6000));
+    f.show(cx, &md, None);
+    f.pane
+        .update(cx, |p, cx| p.scroll_to_source_line(3, 0.0, cx));
+    f.frame(cx);
+    cx.run_until_parked();
+    f.take_events();
+    f.with(cx, |w, cx| {
+        w.scroll(
+            "preview-pane",
+            ScrollDelta::Pixels(point(px(0.), px(-200.))),
+            cx,
+        )
+    });
+    cx.run_until_parked();
+    let events = f.take_events();
+    let Some(PreviewEvent::VisibleSourceLine(line, within)) = events.last() else {
+        panic!("no sync event: {events:?}")
+    };
+    assert_eq!(*line, 3);
+    assert!(*within > 0.0, "no progress inside the paragraph");
 }

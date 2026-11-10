@@ -338,7 +338,7 @@ fn sync_scroll_does_not_echo_but_plain_scroll_does(cx: &mut TestAppContext) {
     let f = open(cx, &text, EditorSettings::default());
     f.take_events();
     f.with(cx, |pane, _, cx| {
-        pane.update(cx, |p, cx| p.sync_to_line(100, cx))
+        pane.update(cx, |p, cx| p.sync_to_line(100, 0.0, cx))
     });
     cx.run_until_parked();
     f.with(cx, |_, _, _| ());
@@ -354,4 +354,36 @@ fn sync_scroll_does_not_echo_but_plain_scroll_does(cx: &mut TestAppContext) {
     f.with(cx, |pane, _, cx| pane.update(cx, |_, cx| cx.notify()));
     cx.run_until_parked();
     assert!(scrolled_count(&f.take_events()) >= 1);
+}
+
+// Sync scroll keeps its place inside a soft-wrapped line (long paragraphs used to
+// hold still, then jump a whole line).
+#[gpui_kit::test]
+fn sync_scroll_tracks_position_inside_a_wrapped_line(cx: &mut TestAppContext) {
+    let long = "word ".repeat(4000);
+    let text = format!("intro\n{long}\nend\n");
+    let f = open(cx, &text, EditorSettings::default());
+    f.with(cx, |pane, _, cx| {
+        pane.update(cx, |p, cx| p.sync_to_line(1, 0.5, cx))
+    });
+    cx.run_until_parked();
+    f.take_events();
+    let top = f.with(cx, |pane, _, cx| pane.read(cx).top_visible_line(cx));
+    assert_eq!(top, 1, "half-way into the wrapped line keeps it at the top");
+
+    // A small wheel tick inside the same line reports progress through it.
+    f.with(cx, |_, window, cx| {
+        use gpui_kit::test::TestWindowExt as _;
+        window.scroll("editor", gpui::ScrollDelta::Lines(gpui::point(0., -3.)), cx)
+    });
+    cx.run_until_parked();
+    let reported = f.take_events().iter().rev().find_map(|e| match e {
+        EditorEvent::Scrolled { top_line, within } => Some((*top_line, *within)),
+        _ => None,
+    });
+    let Some((line, within)) = reported else {
+        panic!("no Scrolled event")
+    };
+    assert_eq!(line, 1);
+    assert!(within > 0.5, "moved further into the line, got {within}");
 }

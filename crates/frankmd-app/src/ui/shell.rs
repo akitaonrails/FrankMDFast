@@ -681,12 +681,12 @@ impl Shell {
     ) {
         use crate::preview::PreviewEvent;
         match ev {
-            PreviewEvent::VisibleSourceLine(line) => {
+            PreviewEvent::VisibleSourceLine(line, within) => {
                 if self.scroll_sync {
                     let line = (*line as usize).saturating_sub(1);
                     self.editor
                         .pane
-                        .update(cx, |p, cx| p.sync_to_line(line, cx));
+                        .update(cx, |p, cx| p.sync_to_line(line, *within, cx));
                 }
             }
             PreviewEvent::ToggleTask { line, .. } => {
