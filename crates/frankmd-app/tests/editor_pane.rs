@@ -323,3 +323,35 @@ fn typewriter_keeps_the_caret_near_the_middle(cx: &mut TestAppContext) {
         "caret at {ratio} of the viewport"
     );
 }
+
+fn scrolled_count(events: &[EditorEvent]) -> usize {
+    events
+        .iter()
+        .filter(|e| matches!(e, EditorEvent::Scrolled { .. }))
+        .count()
+}
+
+// Sync scroll from the preview must not echo back (the echo snapped the preview back).
+#[gpui_kit::test]
+fn sync_scroll_does_not_echo_but_plain_scroll_does(cx: &mut TestAppContext) {
+    let text: String = (0..400).map(|i| format!("line {i}\n")).collect();
+    let f = open(cx, &text, EditorSettings::default());
+    f.take_events();
+    f.with(cx, |pane, _, cx| {
+        pane.update(cx, |p, cx| p.sync_to_line(100, cx))
+    });
+    cx.run_until_parked();
+    f.with(cx, |_, _, _| ());
+    assert_eq!(scrolled_count(&f.take_events()), 0);
+    let top = f.with(cx, |pane, _, cx| pane.read(cx).top_visible_line(cx));
+    assert_eq!(top, 100);
+
+    // Navigation (open note at a line) still reports, so the preview follows.
+    f.with(cx, |pane, _, cx| {
+        pane.update(cx, |p, cx| p.scroll_to_line(200, cx))
+    });
+    cx.run_until_parked();
+    f.with(cx, |pane, _, cx| pane.update(cx, |_, cx| cx.notify()));
+    cx.run_until_parked();
+    assert!(scrolled_count(&f.take_events()) >= 1);
+}

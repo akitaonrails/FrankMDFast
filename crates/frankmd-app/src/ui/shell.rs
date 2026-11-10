@@ -686,7 +686,7 @@ impl Shell {
                     let line = (*line as usize).saturating_sub(1);
                     self.editor
                         .pane
-                        .update(cx, |p, cx| p.scroll_to_line(line, cx));
+                        .update(cx, |p, cx| p.sync_to_line(line, cx));
                 }
             }
             PreviewEvent::ToggleTask { line, .. } => {

@@ -146,6 +146,8 @@ pub struct EditorPane {
     last_selection: Range<usize>,
     last_top_line: usize,
     last_scroll_y: Pixels,
+    /// The next viewport move came from [`Self::sync_to_line`]; do not echo it.
+    sync_scrolling: bool,
     /// Slash menu, completions, insert dialogs and the pending `/query` ([`super::insert`]).
     pub(super) insert: super::insert::InsertHost,
     _subscriptions: Vec<Subscription>,
@@ -228,6 +230,7 @@ impl EditorPane {
             last_selection: 0..0,
             last_top_line: 0,
             last_scroll_y: px(0.),
+            sync_scrolling: false,
             insert: super::insert::InsertHost::default(),
             _subscriptions: subscriptions,
         }
@@ -361,9 +364,18 @@ impl EditorPane {
         self.state.read(cx).focus_handle(cx).is_focused(window)
     }
 
-    /// Scroll so 0-based buffer `line` is the first visible line (sync scroll).
+    /// Scroll so 0-based buffer `line` is the first visible line.
     pub fn scroll_to_line(&mut self, line: usize, cx: &mut Context<Self>) {
         scroll_to_line(&self.state, line, ScrollAnchor::Top, cx);
+    }
+
+    /// Like [`Self::scroll_to_line`], but does not echo an [`EditorEvent::Scrolled`]
+    /// (sync scroll from the preview; an echo would yank the preview back).
+    pub fn sync_to_line(&mut self, line: usize, cx: &mut Context<Self>) {
+        // shortcut: if the viewport does not move, the flag swallows the next user
+        // scroll's echo once; track the target offset if that ever shows.
+        self.sync_scrolling = true;
+        self.scroll_to_line(line, cx);
     }
 
     /// 0-based first visible buffer line.
@@ -684,7 +696,9 @@ impl EditorPane {
         if scroll_y != self.last_scroll_y {
             self.last_scroll_y = scroll_y;
             let top_line = self.top_visible_line(cx);
-            if top_line != self.last_top_line {
+            if std::mem::take(&mut self.sync_scrolling) {
+                self.last_top_line = top_line;
+            } else if top_line != self.last_top_line {
                 self.last_top_line = top_line;
                 cx.emit(EditorEvent::Scrolled { top_line });
             }
