@@ -98,7 +98,7 @@ fn search_toggles_change_matching(cx: &mut TestAppContext) {
         .view
         .read_with(cx, |s, _| s.content_search().query().to_owned());
     assert_eq!(input, "sh.p");
-    harness::press(cx, w, "ctrl-a");
+    harness::press(cx, w, "secondary-a");
     harness::type_text(cx, w, "INBOX");
     settle(cx, &shell);
     assert_eq!(

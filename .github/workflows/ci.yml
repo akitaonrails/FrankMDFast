@@ -44,9 +44,9 @@ jobs:
       - run: cargo test --workspace --locked
 
   build:
-    # The full test suite is Linux-only for now (it exercises Unix file modes,
-    # symlinks and flock); these jobs make sure the app keeps building. The
-    # Windows job additionally runs the Windows-only path adapter and vault
+    # These jobs make sure the app keeps building. macOS also runs the full
+    # test suite. Windows does not (the suite exercises Unix file modes,
+    # symlinks and flock); it runs only the Windows path adapter and vault
     # operation tests, which guard the verbatim `\\?\` path handling.
     name: Build (${{ matrix.os }})
     strategy:
@@ -68,6 +68,10 @@ jobs:
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
 
       - run: cargo clippy --workspace --locked -- -D warnings
+
+      - name: Test (macOS)
+        if: runner.os == 'macOS'
+        run: cargo test --workspace --locked
 
       - name: Test the Windows path adapters and vault operations
         if: runner.os == 'Windows'

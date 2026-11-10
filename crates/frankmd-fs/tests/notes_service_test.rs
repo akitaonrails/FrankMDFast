@@ -11,16 +11,11 @@ mod common;
 
 use common::{Sandbox, sha256_hex};
 use frankmd_core::tree::{FileType, TreeNode};
+use frankmd_fs::errno::{ENOENT, ENOSPC, EOPNOTSUPP, EROFS, EXDEV};
 use frankmd_fs::fault::{self, FaultPoint};
 use frankmd_fs::{FsError, NotesService, Vault};
 use std::io::ErrorKind;
 use std::sync::{Arc, Barrier};
-
-const ENOSPC: i32 = 28;
-const EOPNOTSUPP: i32 = 95;
-const EXDEV: i32 = 18;
-const ENOENT: i32 = 2;
-const EROFS: i32 = 30;
 
 /// `create_test_note(path, content = "# Test\n\nContent")`.
 fn note(sb: &Sandbox, rel: &str) {

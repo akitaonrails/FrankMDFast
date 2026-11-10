@@ -242,7 +242,7 @@ fn clicking_the_pane_title_renames_the_open_note(cx: &mut TestAppContext) {
     let w = shell.window;
     click(cx, &shell, "pane-title");
     assert!(harness::is_shown(cx, w, "pane-title-input"));
-    harness::press(cx, w, "ctrl-a");
+    harness::press(cx, w, "secondary-a");
     harness::type_text(cx, w, "Brief v2");
     harness::press(cx, w, "enter");
     assert_eq!(
@@ -262,7 +262,7 @@ fn title_rename_collision_shows_an_inline_error(cx: &mut TestAppContext) {
     );
     let w = shell.window;
     harness::press(cx, w, "ctrl-2 f2");
-    harness::press(cx, w, "ctrl-a");
+    harness::press(cx, w, "secondary-a");
     harness::type_text(cx, w, "Other");
     harness::press(cx, w, "enter");
     assert!(harness::is_shown(cx, w, "rename-error"));
@@ -283,7 +283,7 @@ fn title_rename_collision_shows_an_inline_error(cx: &mut TestAppContext) {
 fn blank_title_is_rejected(cx: &mut TestAppContext) {
     let shell = open_shell(cx, WIDE, VaultFixture::sample());
     let w = shell.window;
-    harness::press(cx, w, "ctrl-2 f2 ctrl-a backspace enter");
+    harness::press(cx, w, "ctrl-2 f2 secondary-a backspace enter");
     assert!(harness::is_shown(cx, w, "rename-error"));
     assert_eq!(
         shell.active_note(cx).as_deref(),

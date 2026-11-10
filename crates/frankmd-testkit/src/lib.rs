@@ -13,6 +13,7 @@
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 use serde::Deserialize;
 use serde_json::Value;
@@ -101,7 +102,44 @@ pub fn asset_path(rel: &str) -> PathBuf {
     repo_root().join("assets").join(rel)
 }
 
+/// Golden cases (by name, unique across the corpus) whose recorded result needs a
+/// case-sensitive filesystem: the generator ran on Linux, so on a case-insensitive
+/// one (macOS APFS, Windows NTFS) `Note.md` and `note.md` are the same file.
+const CASE_SENSITIVE_FS_ONLY: &[&str] = &[
+    "template_source uppercase .HUGO_TEMPLATE.md ignored",
+    "empty root images/ and videos/ hidden; Images/ (case) kept",
+    "folder names equal after downcase (tie)",
+    "create case-variant of existing (case-sensitive fs)",
+    "case-only rename of file (case-sensitive fs)",
+    "case-only rename of folder",
+    "case-only rename when both exist",
+    "rejects traversal, hidden, outside symlinks, non-markdown and malformed paths",
+    "NotesService#exists? path=\"OK.md\"",
+    "NotesService#exists? path=\"SUB/n.md\"",
+    "NotesService#exists? path=\"Sub2/n.md\"",
+    "NotesService#exists? path=\"sub2/N.md\"",
+    "NotesService#file? path=\"OK.md\"",
+    "NotesService#file? path=\"SUB/n.md\"",
+    "NotesService#file? path=\"Sub2/n.md\"",
+    "NotesService#file? path=\"sub2/N.md\"",
+    "NotesService#safe_path must_exist=true path=\"OK.md\"",
+    "NotesService#safe_path must_exist=true path=\"SUB/n.md\"",
+    "NotesService#safe_path must_exist=true path=\"Sub2/n.md\"",
+    "NotesService#safe_path must_exist=true path=\"sub2/N.md\"",
+];
+
+/// Whether the temp dir (where [`TempTree`]s live) tells `a` and `A` apart.
+pub fn fs_is_case_sensitive() -> bool {
+    static SENSITIVE: OnceLock<bool> = OnceLock::new();
+    *SENSITIVE.get_or_init(|| {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("a"), "").unwrap();
+        !dir.path().join("A").exists()
+    })
+}
+
 /// Run `check` on every case and report all failures at once instead of stopping at the first.
+/// Cases in [`CASE_SENSITIVE_FS_ONLY`] are skipped on a case-insensitive filesystem.
 ///
 /// `check` returns `Err(description)` on mismatch.
 pub fn assert_cases<'a>(
@@ -112,6 +150,13 @@ pub fn assert_cases<'a>(
     let mut failures = Vec::new();
     let mut total = 0usize;
     for case in cases {
+        if CASE_SENSITIVE_FS_ONLY.contains(&case.name.as_str()) && !fs_is_case_sensitive() {
+            eprintln!(
+                "{fixture}: skipped [{}] (case-insensitive filesystem)",
+                case.name
+            );
+            continue;
+        }
         total += 1;
         if let Err(msg) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| check(case)))
             .unwrap_or_else(|p| Err(panic_message(&p)))

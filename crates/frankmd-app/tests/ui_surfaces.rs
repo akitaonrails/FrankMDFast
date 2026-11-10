@@ -246,13 +246,13 @@ fn palette_unavailable_rows_do_not_run(cx: &mut TestAppContext) {
 fn ctrl_e_reopens_sidebar_without_stealing_focus(cx: &mut TestAppContext) {
     let shell = open_shell(cx, WIDE, VaultFixture::sample());
     let w = shell.window;
-    harness::press(cx, w, "ctrl-2 ctrl-e");
+    harness::press(cx, w, "ctrl-2 secondary-e");
     assert!(!harness::is_shown(cx, w, "sidebar"));
     assert!(
         fed(&shell).contains("sidebar_visible = false"),
         "persisted per vault"
     );
-    harness::press(cx, w, "ctrl-e");
+    harness::press(cx, w, "secondary-e");
     assert!(harness::is_shown(cx, w, "sidebar"));
     assert_eq!(shell.focus_region(cx), Some(FocusRegion::Editor));
 }
@@ -263,11 +263,11 @@ fn ctrl_e_reopens_sidebar_without_stealing_focus(cx: &mut TestAppContext) {
 fn narrow_drawer_closes_on_scrim_and_after_opening_a_note(cx: &mut TestAppContext) {
     let shell = open_shell(cx, NARROW, VaultFixture::sample());
     let w = shell.window;
-    harness::press(cx, w, "ctrl-e");
+    harness::press(cx, w, "secondary-e");
     click(cx, &shell, "drawer-scrim");
     assert!(!harness::is_shown(cx, w, "sidebar"));
     assert_eq!(shell.focus_region(cx), Some(FocusRegion::Editor));
-    harness::press(cx, w, "ctrl-e");
+    harness::press(cx, w, "secondary-e");
     click(cx, &shell, "explorer-row-Inbox.md");
     assert_eq!(shell.active_note(cx).as_deref(), Some("Inbox.md"));
     assert!(

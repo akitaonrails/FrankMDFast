@@ -7,14 +7,17 @@
 //! - `checked_target (real resolve)` / `resolve (real)`: the system resolver with
 //!   numeric hosts (glibc `inet_aton` forms). `localhost` is machine dependent
 //!   (/etc/hosts order), so for it only the *set* of addresses is compared and any
-//!   loopback answer is accepted for `checked_target`.
+//!   loopback answer is accepted for `checked_target`. macOS `getaddrinfo` reads
+//!   the dotted octal `0177.0.0.1` as decimal (177.0.0.1), so off Linux that host
+//!   is checked through `checked_target`, whose WHATWG re-parse must still refuse it.
 
 use std::net::IpAddr;
 use std::sync::Mutex;
 
 use frankmd_net::NetError;
 use frankmd_net::egress::{
-    HostResolver, SystemResolver, Target, USERINFO_MESSAGE, check_target, is_blocked_net, parse_ip,
+    HostResolver, SystemResolver, Target, USERINFO_MESSAGE, check_target, checked_target,
+    is_blocked_net, parse_ip,
 };
 use frankmd_testkit::serde_json::{Value, json};
 use frankmd_testkit::{Case, assert_cases, golden};
@@ -136,6 +139,9 @@ fn checked_target_resolve_stubbed() {
     );
 }
 
+/// The one recorded host whose glibc answer other resolvers do not reproduce.
+const GLIBC_OCTAL_HOST: &str = "0177.0.0.1";
+
 #[test]
 fn checked_target_real_resolve() {
     let g = golden("egress_policy");
@@ -144,6 +150,16 @@ fn checked_target_real_resolve() {
         g.cases_for("checked_target (real resolve)"),
         |c| {
             let url = c.input["url"].as_str().ok_or("url")?;
+            if cfg!(not(target_os = "linux")) && url.contains(GLIBC_OCTAL_HOST) {
+                return match checked_target(url, &SystemResolver) {
+                    Err(NetError::Blocked(m))
+                        if m == "Refusing to fetch a non-public address (127.0.0.1)" =>
+                    {
+                        Ok(())
+                    }
+                    other => Err(format!("octal loopback not refused: {other:?}")),
+                };
+            }
             let result = result_json(check_target(url, &SystemResolver));
             if url.contains("localhost") {
                 // Machine dependent: first answer may be 127.0.0.1 or ::1.
@@ -169,6 +185,9 @@ fn resolve_real() {
         g.cases_for("resolve (real)"),
         |c| {
             let host = c.input["host"].as_str().ok_or("host")?;
+            if cfg!(not(target_os = "linux")) && host == GLIBC_OCTAL_HOST {
+                return Ok(());
+            }
             let mut got: Vec<String> = SystemResolver
                 .resolve(host)
                 .map_err(|e| e.to_string())?

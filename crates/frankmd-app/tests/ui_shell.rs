@@ -147,7 +147,7 @@ fn narrow_sidebar_is_a_drawer_closed_by_escape(cx: &mut TestAppContext) {
     let shell = open_shell(cx, NARROW, VaultFixture::sample());
     let w = shell.window;
     assert!(!harness::is_shown(cx, w, "sidebar"));
-    harness::press(cx, w, "ctrl-e");
+    harness::press(cx, w, "secondary-e");
     assert!(harness::is_shown(cx, w, "sidebar"));
     assert_eq!(
         shell.focus_region(cx),

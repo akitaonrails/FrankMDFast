@@ -45,6 +45,8 @@ enum Armed {
 
 struct Active {
     armed: Armed,
+    /// `spec.target` with symlinks resolved, as FSEvents reports paths.
+    canonical_target: PathBuf,
     rx: Receiver<DebounceEventResult>,
     _debouncer: Debouncer<RecommendedWatcher, RecommendedCache>,
 }
@@ -126,10 +128,15 @@ impl Worker {
     }
 
     fn is_relevant(&self, path: &Path) -> bool {
-        match path.strip_prefix(&self.spec.target) {
-            Ok(rel) if rel.as_os_str().is_empty() => false,
-            Ok(rel) => (self.spec.relevant)(rel),
-            Err(_) => false,
+        let canonical = self.active.as_ref().map(|a| a.canonical_target.as_path());
+        let rel = [Some(self.spec.target.as_path()), canonical]
+            .into_iter()
+            .flatten()
+            .find_map(|root| path.strip_prefix(root).ok());
+        match rel {
+            Some(rel) if rel.as_os_str().is_empty() => false,
+            Some(rel) => (self.spec.relevant)(rel),
+            None => false,
         }
     }
 
@@ -184,6 +191,11 @@ impl Worker {
         debouncer.watch(path, mode).map_err(err)?;
         Ok(Active {
             armed: armed.clone(),
+            canonical_target: self
+                .spec
+                .target
+                .canonicalize()
+                .unwrap_or_else(|_| self.spec.target.clone()),
             rx,
             _debouncer: debouncer,
         })
