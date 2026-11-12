@@ -42,8 +42,8 @@ cargo run -- ~/notes       # open a notes folder (or a single note)
 Known gaps: relative line numbers; typed insert-mode text after `cw` takes a second undo; Hebrew
 has no right-to-left layout yet (GPUI has no bidi); settings "Test connection" buttons; secrets
 in the global config file are plain text (0600), with no keyring yet. On Windows a second launch
-opens a new window instead of reusing the running app. The full test suite runs on Linux; Windows
-CI also runs the Windows-only path and vault tests, and macOS CI checks that it builds.
+opens a new window instead of reusing the running app. The full test suite runs on Linux and
+macOS CI; Windows CI runs the Windows-only path and vault tests on top of the build.
 
 ## Releases
 

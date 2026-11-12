@@ -2566,7 +2566,7 @@ dependencies = [
 
 [[package]]
 name = "frankmd-ai"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "base64 0.22.1",
  "frankmd-config",
@@ -2586,7 +2586,7 @@ dependencies = [
 
 [[package]]
 name = "frankmd-app"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "anyhow",
  "async-channel",
@@ -2618,7 +2618,7 @@ dependencies = [
 
 [[package]]
 name = "frankmd-config"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "etcetera",
  "frankmd-core",
@@ -2636,7 +2636,7 @@ dependencies = [
 
 [[package]]
 name = "frankmd-core"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "frankmd-i18n",
  "frankmd-testkit",
@@ -2651,7 +2651,7 @@ dependencies = [
 
 [[package]]
 name = "frankmd-fs"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "frankmd-core",
  "frankmd-fs",
@@ -2671,7 +2671,7 @@ dependencies = [
 
 [[package]]
 name = "frankmd-i18n"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "frankmd-config",
  "frankmd-testkit",
@@ -2683,7 +2683,7 @@ dependencies = [
 
 [[package]]
 name = "frankmd-markdown"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "fancy-regex 0.20.0",
  "frankmd-core",
@@ -2702,7 +2702,7 @@ dependencies = [
 
 [[package]]
 name = "frankmd-media"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "aws-credential-types",
  "aws-sdk-s3",
@@ -2730,7 +2730,7 @@ dependencies = [
 
 [[package]]
 name = "frankmd-net"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "frankmd-testkit",
  "ipnet",
@@ -2744,7 +2744,7 @@ dependencies = [
 
 [[package]]
 name = "frankmd-search"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "fancy-regex 0.20.0",
  "frankmd-core",
@@ -2757,7 +2757,7 @@ dependencies = [
 
 [[package]]
 name = "frankmd-testkit"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "serde",
  "serde_json",
@@ -2766,7 +2766,7 @@ dependencies = [
 
 [[package]]
 name = "frankmd-theme"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "frankmd-testkit",
  "serde",
@@ -2778,7 +2778,7 @@ dependencies = [
 
 [[package]]
 name = "frankmd-vim"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "frankmd-testkit",
  "frankmd-workspace",
@@ -2788,7 +2788,7 @@ dependencies = [
 
 [[package]]
 name = "frankmd-watch"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "frankmd-core",
  "notify",
@@ -2799,7 +2799,7 @@ dependencies = [
 
 [[package]]
 name = "frankmd-workspace"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "frankmd-config",
  "frankmd-core",
